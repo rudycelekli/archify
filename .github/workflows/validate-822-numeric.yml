@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --input-type=module -e 'import {classifyPaths} from "./scripts/ci-scope.mjs"; const p=classifyPaths(["archify/renderers/shared/svg-path-analysis.mjs","archify/scripts/check-render-output.mjs","test/svg-path-analysis.test.mjs","test/svg-path-checker.test.mjs","archify.zip"]); console.log(JSON.stringify(p)); if(p.scope!=="core"||JSON.stringify(p.owners)!=="[\"renderer\"]"||!p.generated||!p.browser||!p.package||p.windows||p.webm||p.manifest||p.website)process.exit(1)' | tee proof/scope.json
+          node --input-type=module -e 'import {classifyPaths} from "./scripts/ci-scope.mjs"; const p=classifyPaths(["archify/renderers/shared/svg-path-analysis.mjs","archify/scripts/check-render-output.mjs","test/svg-path-analysis.test.mjs","test/svg-path-checker.test.mjs","archify.zip"]); console.log(JSON.stringify(p)); if(p.scope!=="full"||JSON.stringify(p.owners)!=="[\"renderer\"]"||!p.generated||!p.browser||!p.package||!p.windows||!p.webm||!p.manifest||!p.website)process.exit(1)' | tee proof/scope.json
       - name: Build twice from clean tracked source and compare
         shell: bash
         run: |
