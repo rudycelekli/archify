@@ -1,0 +1,206 @@
+name: Validate reviewed Archify 822 SVG repair
+on:
+  push:
+    branches: [validation/archify822-native-20261011]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  canonical:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: rudycelekli/archify
+          ref: dabeefd4d48753fae902e6d94afa7ee152c34647
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.23.2
+      - name: Verify exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = dabeefd4d48753fae902e6d94afa7ee152c34647
+          mkdir -p proof
+          node -p 'JSON.stringify({source:"dabeefd4d48753fae902e6d94afa7ee152c34647",node:process.versions.node,zlib:process.versions.zlib,platform:process.platform})' | tee proof/runtime.json
+      - name: Assert actual affected responsibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module -e 'import {classifyPaths} from "./scripts/ci-scope.mjs"; const p=classifyPaths(["archify/renderers/shared/svg-path-analysis.mjs","test/svg-path-analysis.test.mjs","test/svg-path-checker.test.mjs","archify.zip"]); console.log(JSON.stringify(p)); if(p.scope!=="core"||p.owners.length!==1||p.owners[0]!=="renderer"||!p.generated||!p.browser||!p.package||p.windows||p.webm||p.manifest||p.website)process.exit(1)' | tee proof/scope.json
+      - name: Install exact lockfile dependencies
+        run: npm ci && npm --prefix archify ci
+      - name: Generated outputs and frozen representative goldens
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:generated 2>&1 | tee proof/generated.log
+      - name: Core public CLI contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test 2>&1 | tee proof/core.log
+      - name: All affected renderer and changed regression suites
+        shell: bash
+        env:
+          CI_TEST_OWNERS: '["renderer"]'
+          CI_CHANGED_TESTS: '["test/svg-path-analysis.test.mjs","test/svg-path-checker.test.mjs"]'
+        run: |
+          set -euo pipefail
+          npm run test:affected 2>&1 | tee proof/affected.log
+      - name: Canonical ZIP freshness and clean source
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/build-zip.sh "$RUNNER_TEMP/fresh822.zip" | tee proof/zip-build.log
+          cmp "$RUNNER_TEMP/fresh822.zip" archify.zip
+          sha256sum archify.zip "$RUNNER_TEMP/fresh822.zip" | tee proof/zip-digests.txt
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        if: always()
+        with:
+          name: archify822-canonical-proof
+          path: proof
+          if-no-files-found: error
+          retention-days: 7
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 24]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: rudycelekli/archify
+          ref: dabeefd4d48753fae902e6d94afa7ee152c34647
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = dabeefd4d48753fae902e6d94afa7ee152c34647
+          mkdir -p proof
+          node -p 'JSON.stringify({source:"dabeefd4d48753fae902e6d94afa7ee152c34647",node:process.versions.node,zlib:process.versions.zlib,platform:process.platform})' | tee proof/runtime.json
+      - name: Install locked dependencies
+        run: npm ci && npm --prefix archify ci
+      - name: Supported Node runtime core
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:compat 2>&1 | tee proof/compatibility.log
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        if: always()
+        with:
+          name: archify822-node${{ matrix.node }}-proof
+          path: proof
+          if-no-files-found: error
+          retention-days: 7
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: rudycelekli/archify
+          ref: dabeefd4d48753fae902e6d94afa7ee152c34647
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.23.2
+      - name: Verify exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = dabeefd4d48753fae902e6d94afa7ee152c34647
+          mkdir -p proof
+          node -p 'JSON.stringify({source:"dabeefd4d48753fae902e6d94afa7ee152c34647",node:process.versions.node,zlib:process.versions.zlib,platform:process.platform})' | tee proof/runtime.json
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4
+        id: chrome
+        with:
+          chrome-version: stable
+          install-dependencies: true
+      - name: Install locked browser test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm --prefix archify ci --ignore-scripts
+      - name: Real maintained browser shard
+        shell: bash
+        env:
+          ARCHIFY_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+          ARCHIFY_CHROME_NO_SANDBOX: '1'
+        run: |
+          set -euo pipefail
+          "$ARCHIFY_CHROME" --version | tee proof/browser-version.txt
+          npm run test:browser -- --shard=${{ matrix.shard }}/2 2>&1 | tee proof/browser.log
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        if: always()
+        with:
+          name: archify822-browser${{ matrix.shard }}-proof
+          path: proof
+          if-no-files-found: error
+          retention-days: 7
+  package:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: rudycelekli/archify
+          ref: dabeefd4d48753fae902e6d94afa7ee152c34647
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.23.2
+      - name: Verify exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = dabeefd4d48753fae902e6d94afa7ee152c34647
+          mkdir -p proof
+          node -p 'JSON.stringify({source:"dabeefd4d48753fae902e6d94afa7ee152c34647",node:process.versions.node,zlib:process.versions.zlib,platform:process.platform})' | tee proof/runtime.json
+      - name: Extract package outside repository on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_root="$RUNNER_TEMP/archify-package"
+          mkdir -p "$package_root"
+          unzip -q archify.zip -d "$package_root"
+      - name: Extract package outside repository on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $packageRoot = Join-Path $env:RUNNER_TEMP 'archify-package'
+          Expand-Archive -Path archify.zip -DestinationPath $packageRoot
+      - name: Actual packaged Skill smoke without dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/package-smoke.mjs 2>&1 | tee proof/package.log
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        if: always()
+        with:
+          name: archify822-package-${{ matrix.os }}-proof
+          path: proof
+          if-no-files-found: error
+          retention-days: 7
