@@ -1,0 +1,49 @@
+name: Validate Archify 855 Windows Node 22
+
+on:
+  push:
+    branches: [validation/archify855-windows-node22-20261011]
+    paths: [.github/workflows/validate-855-windows.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-node22:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: tt-a1i/archify
+          ref: 3e7f857910e59b706cf6e453e5ae7583fb3e2dd3
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.23.3
+      - name: Verify exact source and native runner
+        shell: pwsh
+        run: |
+          $head = git rev-parse HEAD
+          if ($head -ne '3e7f857910e59b706cf6e453e5ae7583fb3e2dd3') { throw 'Unexpected source head' }
+          $platform = node -p 'process.platform'
+          $version = node -p 'process.version'
+          if ($platform -ne 'win32' -or $version -ne 'v22.23.3') { throw 'Unexpected native runtime' }
+          New-Item -ItemType Directory -Path validation-proof | Out-Null
+          @{ source_head = $head; platform = $platform; node = $version; runner_os = $env:RUNNER_OS; workflow_sha = $env:GITHUB_SHA; test = 'integrations/deepseek-harness/test/pack-arguments.test.mjs' } | ConvertTo-Json | Set-Content validation-proof/runtime.json
+      - name: Run exact DSH pack rejection test
+        shell: pwsh
+        run: |
+          node --test --test-reporter=tap integrations/deepseek-harness/test/pack-arguments.test.mjs 2>&1 | Tee-Object -FilePath validation-proof/test.log
+          $testExit = $LASTEXITCODE
+          if ($testExit -ne 0) { exit $testExit }
+          $log = Get-Content validation-proof/test.log -Raw
+          if ($log -notmatch '(?m)^# pass 1\s*$' -or $log -notmatch '(?m)^# skipped 0\s*$') { throw 'Expected test did not execute successfully' }
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        if: always()
+        with:
+          name: archify-855-windows-node22-proof
+          path: validation-proof/
+          if-no-files-found: error
+          retention-days: 7
