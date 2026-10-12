@@ -1,0 +1,72 @@
+name: Validate exact Archify 822 browser gates
+on:
+  push:
+    branches: [validation/822-reader-20261012]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 487b3a9912a9434a2fcbe94369ad5c548bc3e130
+          path: candidate
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22
+      - name: Provision the canonical Chrome runtime
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4
+        with:
+          chrome-version: stable
+          install-dependencies: true
+      - name: Verify the exact published source and workflow
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = 487b3a9912a9434a2fcbe94369ad5c548bc3e130
+          echo 'd66398f153ac18feb8dbcdabd85510b3d112ac3adb3de0b6a05e87a85eca40b2  archify/renderers/shared/geometry-predicates.mjs' | sha256sum --check
+          echo '973ffa1c3bc2201f9647ecfa4116b81323b3b73c0e569e5d7a76b2529bc3be9e  archify.zip' | sha256sum --check
+          sha256sum .github/workflows/ci.yml
+      - name: Install canonical candidate browser dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm --prefix archify ci --ignore-scripts
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        if: matrix.shard == 2
+        with:
+          ref: bc223e07c5313e1f16c8322c0d45ab8290153766
+          path: baseline
+      - name: Install baseline browser dependencies
+        if: matrix.shard == 2
+        working-directory: baseline
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm --prefix archify ci --ignore-scripts
+      - name: Observe the frozen baseline on the same runner and Chrome
+        if: matrix.shard == 2
+        continue-on-error: true
+        working-directory: baseline
+        run: npm run test:browser -- --shard=2/2 | tee baseline-browser-2.log
+        env:
+          ARCHIFY_CHROME: ${{ steps.setup-chrome.outputs.chrome-path }}
+          ARCHIFY_CHROME_NO_SANDBOX: '1'
+      - name: Require the canonical candidate browser gate
+        working-directory: candidate
+        run: npm run test:browser -- --shard=${{ matrix.shard }}/2 | tee candidate-browser-${{ matrix.shard }}.log
+        env:
+          ARCHIFY_CHROME: ${{ steps.setup-chrome.outputs.chrome-path }}
+          ARCHIFY_CHROME_NO_SANDBOX: '1'
+      - name: Preserve actual gate logs
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: exact-822-browser-${{ matrix.shard }}
+          path: |
+            candidate/candidate-browser-*.log
+            baseline/baseline-browser-*.log
