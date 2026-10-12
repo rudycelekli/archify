@@ -1,3 +1,4 @@
+# Fork validation registration; canonical upstream jobs and commands unchanged.
 name: DSH integration
 
 on:
