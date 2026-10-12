@@ -2,7 +2,7 @@ name: Validate Archify 843 followup Windows Node 22
 
 on:
   push:
-    branches: [validation/archify843-followup-windows-20261011]
+    branches: [validation/archify843-competing-windows-20261011]
     paths: [.github/workflows/validate-843-followup-windows.yml]
   workflow_dispatch:
 
@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           repository: rudycelekli/archify
-          ref: e3787be4c09c26ba439fb82c7bcb42bbe98c213b
+          ref: 6c5204892689473c3473b98d5cfdc70193577b9a
           persist-credentials: false
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
@@ -26,7 +26,7 @@ jobs:
         shell: pwsh
         run: |
           $head = git rev-parse HEAD
-          if ($head -ne 'e3787be4c09c26ba439fb82c7bcb42bbe98c213b') { throw 'Unexpected source head' }
+          if ($head -ne '6c5204892689473c3473b98d5cfdc70193577b9a') { throw 'Unexpected source head' }
           $platform = node -p 'process.platform'
           $version = node -p 'process.version'
           if ($platform -ne 'win32' -or $version -ne 'v22.23.3') { throw 'Unexpected native runtime' }
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         if: always()
         with:
-          name: archify-843-followup-windows-node22-proof
+          name: archify-843-competing-windows-node22-proof
           path: validation-proof/
           if-no-files-found: error
           retention-days: 7
