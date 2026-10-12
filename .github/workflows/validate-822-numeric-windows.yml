@@ -1,0 +1,133 @@
+name: Corrected native Windows proof for reviewed Archify 822
+on:
+  push:
+    branches: [validation/archify822-numeric-windows-20261011]
+    paths: [.github/workflows/validate-822-numeric-windows.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: archify822-numeric-windows-proof
+  cancel-in-progress: false
+
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      scope: ${{ steps.classify.outputs.scope }}
+      website: ${{ steps.classify.outputs.website }}
+      generated: ${{ steps.classify.outputs.generated }}
+      browser: ${{ steps.classify.outputs.browser }}
+      webm: ${{ steps.classify.outputs.webm }}
+      package: ${{ steps.classify.outputs.package }}
+      windows: ${{ steps.classify.outputs.windows }}
+      manifest: ${{ steps.classify.outputs.manifest }}
+      owners: ${{ steps.classify.outputs.owners }}
+      changedTests: ${{ steps.classify.outputs.changedTests }}
+    steps:
+      # Classification compares two trees, not their shared history.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          repository: rudycelekli/archify
+          ref: 33a6cc9e2c0c023cf5f5333a60f65544cac78724
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify exact reviewed numeric source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 33a6cc9e2c0c023cf5f5333a60f65544cac78724
+          # Native repository-evidence fixtures refer to the upstream origin.
+          git remote set-url origin https://github.com/tt-a1i/archify.git
+          test "$(git remote get-url origin)" = https://github.com/tt-a1i/archify.git
+          node -p 'JSON.stringify({source:"33a6cc9e2c0c023cf5f5333a60f65544cac78724",node:process.versions.node,platform:process.platform})' 
+      - name: Fetch PR comparison base
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          [[ "$CI_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          git fetch --no-tags --depth=1 origin "$CI_BASE_SHA"
+      - name: Fetch dev push comparison base when available
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        shell: bash
+        env:
+          CI_BASE_SHA: ${{ github.event.before }}
+        run: |
+          if [[ "$CI_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ ! "$CI_BASE_SHA" =~ ^0+$ ]]; then
+            git fetch --no-tags --depth=1 origin "$CI_BASE_SHA" || echo 'Comparison base unavailable; classification requires full CI.'
+          fi
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+      - name: Classify changed paths
+        id: classify
+        run: node scripts/ci-scope.mjs
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_REF: ${{ github.ref }}
+      - name: Check README content for documentation-only changes
+        if: steps.classify.outputs.scope == 'docs'
+        run: node --test test/readme-showcase.test.mjs
+
+  windows-test-portability:
+    needs: scope
+    if: always() && !cancelled()
+    name: Windows test portability (Node ${{ matrix.node-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      # Keep every required matrix check present; fail closed if classification/checks fail.
+      - name: Require successful scope checks
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          CI_SCOPE: ${{ needs.scope.outputs.scope }}
+        shell: bash
+        run: |
+          test "$SCOPE_RESULT" = success
+          case "$CI_SCOPE" in docs|core|full) ;; *) exit 1 ;; esac
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          repository: rudycelekli/archify
+          ref: 33a6cc9e2c0c023cf5f5333a60f65544cac78724
+          persist-credentials: false
+        if: needs.scope.outputs.windows == 'true'
+      - name: Verify exact reviewed numeric source
+        if: needs.scope.outputs.windows == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 33a6cc9e2c0c023cf5f5333a60f65544cac78724
+          # Native repository-evidence fixtures refer to the upstream origin.
+          git remote set-url origin https://github.com/tt-a1i/archify.git
+          test "$(git remote get-url origin)" = https://github.com/tt-a1i/archify.git
+          node -p 'JSON.stringify({source:"33a6cc9e2c0c023cf5f5333a60f65544cac78724",node:process.versions.node,platform:process.platform})' 
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        if: needs.scope.outputs.windows == 'true'
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install test dependencies
+        if: needs.scope.outputs.windows == 'true'
+        run: npm ci --ignore-scripts && npm --prefix archify ci --ignore-scripts
+      - name: Provision controlled Windows path fixtures
+        if: needs.scope.outputs.windows == 'true'
+        shell: pwsh
+        run: scripts/windows-path-fixtures.ps1 -NodeVersion '${{ matrix.node-version }}'
+      - name: Verify maintained Windows path contracts
+        if: needs.scope.outputs.windows == 'true'
+        run: node scripts/run-windows-path-tests.mjs ${{ matrix.node-version == 24 && '--smoke' || '' }}
+        env:
+          ARCHIFY_REQUIRE_WINDOWS_8DOT3: '1'
+          ARCHIFY_REQUIRE_WINDOWS_REAL_PATHS: '1'
+      - name: Clean up controlled Windows path fixtures
+        if: ${{ always() && needs.scope.outputs.windows == 'true' }}
+        shell: pwsh
+        run: scripts/windows-path-fixtures.ps1 -NodeVersion '${{ matrix.node-version }}' -Cleanup
+
