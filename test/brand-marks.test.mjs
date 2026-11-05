@@ -146,6 +146,9 @@ test('brand discovery resolves model names, aliases, domains, and Chinese channe
     ['Gemini', 'google-gemini'],
     ['github.com', 'github'],
     ['微信', 'wechat'],
+    ['Digital Ocean', 'digitalocean'],
+    ['Apache_Kafka', 'apache-kafka'],
+    ['https://github.com/features', 'github'],
   ]) {
     const result = spawnSync(process.execPath, [cli, 'brands', query, '--json'], {
       cwd: skillRoot,

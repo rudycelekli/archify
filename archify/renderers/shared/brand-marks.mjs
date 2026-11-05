@@ -81,8 +81,10 @@ export function findBrandMark(value) {
 
 export function listBrandMarks(query = '') {
   const needle = String(query).trim().toLocaleLowerCase('en-US');
+  // Search must find what a `brand` field resolves ("Digital Ocean", a URL), not only substrings.
+  const resolved = needle ? findBrandMark(query) : null;
   return BRAND_MARKS.filter((mark) => {
-    if (!needle) return true;
+    if (!needle || mark === resolved) return true;
     return [mark.id, mark.title, mark.category, ...mark.aliases, ...mark.domains]
       .some((value) => String(value).toLocaleLowerCase('en-US').includes(needle));
   }).map(({ path, ...mark }) => mark);
