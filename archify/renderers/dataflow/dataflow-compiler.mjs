@@ -626,7 +626,9 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
             const midY = (start[1] + end[1]) / 2;
             return [[start[0], midY], [end[0], midY]];
           }
-          if (Math.abs(start[1] - end[1]) < 4) return [];
+          // Only an exactly level pair runs straight; a 1-3px offset still needs
+          // the orthogonal jog, or its slanted segment fails the side-direction gate.
+          if (Math.abs(start[1] - end[1]) < 0.0001) return [];
           const midX = start[0] + (end[0] - start[0]) / 2;
           // Across several stages the midpoint can fall inside a middle stage's
           // node; then turn in the clear inter-stage gap nearest to it.

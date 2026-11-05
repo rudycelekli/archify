@@ -828,3 +828,21 @@ test('an invalid authored label preserves its diagnosis and the existing artifac
   assert.equal(rendered.status, 1);
   assert.equal(fs.readFileSync(output, 'utf8'), 'previous complete diagram');
 });
+
+test('a neighbour a few pixels off level still gets an orthogonal automatic route', t => {
+  for (const offset of [{ height: 64 }, { yOffset: 2 }]) {
+    const diagram = {
+      schema_version: 1, diagram_type: 'dataflow',
+      meta: { title: 'Near level', output: 'diagram.html' },
+      stages: [{ label: 'Source' }, { label: 'Store' }],
+      nodes: [
+        { id: 'app', type: 'backend', label: 'App', stage: 0, row: 0 },
+        { id: 'db', type: 'database', label: 'DB', stage: 1, row: 0, ...offset },
+      ],
+      flows: [{ from: 'app', to: 'db', label: 'events' }],
+    };
+    const { result, receipt } = inspect(t, diagram);
+    assert.equal(result.status, 0, JSON.stringify(offset) + JSON.stringify(receipt.diagnostics?.map(({ message }) => message)));
+    assert.ok(!receipt.diagnostics?.some(({ code }) => code === 'clean-flow/endpoint-side-direction'), JSON.stringify(offset));
+  }
+});
