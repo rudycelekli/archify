@@ -98,7 +98,8 @@ const timezone = tl.meta.timezone || 'UTC';
       fail('timeline/invalid-timestamp', `Event "${event.id}" timestamp "${event.at}" is not a valid date and time.`,
         { path: `/events/${index}/at`, nodeId: event.id }, { at: event.at }, ['Use ISO 8601 with an explicit offset, e.g. "2026-10-01T10:05:00+08:00".']);
     }
-    if (laneIds.size && !laneIds.has(event.lane)) {
+    // A named lane must be declared even when no lane is: otherwise the assignment is silently dropped.
+    if ((laneIds.size || event.lane !== undefined) && !laneIds.has(event.lane)) {
       fail('timeline/unknown-lane', event.lane === undefined
         ? `Event "${event.id}" has no lane, but the timeline declares lanes.`
         : `Event "${event.id}" names lane "${event.lane}", which is not declared.`,
