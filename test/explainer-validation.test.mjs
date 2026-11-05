@@ -87,3 +87,10 @@ test('answer accepts at most four reasons and qualifier checks exclude scope and
  for(const field of ['summary','reasons','body']){const changed=structuredClone(d);if(field==='summary')changed.answer.summary='示例判断';if(field==='reasons')changed.answer.reasons=['本例适用'];if(field==='body')blocks(changed)[0].text='Illustrative, not measured.';const issues=validateExplainer(changed).diagnostics.filter(d=>d.code==='explainer/writing-qualification');assert.ok(issues.length,field);assert.ok(JSON.stringify(issues).includes('把限定条件写进 scope 或来源'));}
  d.answer.reasons=Array(5).fill('Reason');check(d,'schema-maxItems');
 });
+
+test('a chart caption may state that its numbers are illustrative',()=>{
+ const d=base();blocks(d).push({id:'latency',type:'chart',title:'Checkout latency before and after (ms), illustrative',text:'xychart-beta\n  x-axis [before, after]\n  bar [120, 180]'});
+ assert.deepEqual(validateExplainer(d).diagnostics.filter(issue=>issue.code==='explainer/writing-qualification'),[]);
+ blocks(d)[0].text='Latency is illustrative.';
+ assert.equal(validateExplainer(d).diagnostics.filter(issue=>issue.code==='explainer/writing-qualification').length,1,'prose keeps the hint');
+});

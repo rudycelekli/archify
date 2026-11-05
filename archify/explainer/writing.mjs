@@ -85,7 +85,10 @@ export function lintExplainerWriting(entries, {mode = 'warn', locale = 'auto', s
         example: '8 人团队 · 上线半年 · 峰值约 300 QPS / Eight people · six months live · ~300 QPS peak',
         fix: 'Keep the conditions a reader must check, as short labels separated by “·”. Drop process notes about how the page was made.'});
     } else {
+      // A chart caption is where the guide asks for its data's provenance ("illustrative").
+      const chartCaption = entry.component === 'chart' && /\/title$/u.test(entry.pointer || '');
       for (const rule of RULES) {
+        if (chartCaption && rule.id === 'qualification') continue;
         // New regex per entry prevents mutable lastIndex from leaking between calls.
         for (const match of text.matchAll(new RegExp(rule.pattern.source, rule.pattern.flags))) {
           found.push({offset: match.index, rule: rule.id, reason: rule.reason, example: rule.example, fix: rule.fix, matched: match[0]});
