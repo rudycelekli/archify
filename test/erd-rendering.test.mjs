@@ -441,6 +441,18 @@ test('optionality adds the zero marker and identifying false draws the dashed va
   assert.match(payment.raw, /class="a-dashed"/, 'a non-identifying relationship is drawn dashed');
 });
 
+test('a labelled non-identifying relationship uses the dashed label accent', () => {
+  const diagram = cloneWithoutViews(example);
+  const relationship = diagram.relationships.find((entry) => entry.from === 'payment');
+  assert.equal(relationship.variant, undefined);
+  relationship.label = 'settles';
+  const directory = createScratchDirectory(path.join(os.tmpdir(), 'archify-er-identifying-label-'));
+  const { status, output } = render(diagram, directory);
+  assert.equal(status, 0);
+  const html = fs.readFileSync(output, 'utf8');
+  assert.match(html, /<text [^>]*class="t-messagebus"[^>]*>settles<\/text>/, 'the label matches its dashed path');
+});
+
 // A junction table's column is often both roles at once: the pair is the
 // primary key and each member is a foreign key. A contract holding a single
 // role forces the author to hide one of the two facts, so `key` states them all.
