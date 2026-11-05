@@ -451,3 +451,25 @@ test('notes that fit their phase, or messages outside it, do not request a phase
     assert.ok(!(JSON.parse(result.stdout).composition?.sequenceNoteBorders || []).some(d => d.code === 'sequence/note-segment-border'));
   }
 });
+
+test('the CLI --quality showcase flag applies the sequence note gates without meta.quality_profile', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-sequence-quality-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const spec = sequence({
+    quality: undefined,
+    participants: ['client', 'api', 'db', 'cache', 'queue'],
+    messages: [
+      { id: 'request', from: 'client', to: 'api', y: 200, label: 'request', note: LONG_NOTE },
+      { id: 'reply', from: 'api', to: 'client', y: 230, label: 'reply', variant: 'return' },
+    ],
+  });
+  delete spec.meta.quality_profile;
+  const input = path.join(dir, 'candidate.json');
+  fs.writeFileSync(input, JSON.stringify(spec));
+  const validate = (quality) => spawnSync(process.execPath, [cli, 'validate', 'sequence', input, '--json', '--quality', quality],
+    { cwd: skillRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  const showcase = validate('showcase');
+  assert.notEqual(showcase.status, 0, showcase.stdout);
+  assert.ok(JSON.parse(showcase.stdout).diagnostics.some((entry) => entry.code === 'sequence/note-overlap'), showcase.stdout);
+  assert.equal(validate('standard').status, 0, 'standard keeps accepting the crowded note');
+});

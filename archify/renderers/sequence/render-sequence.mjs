@@ -21,6 +21,9 @@ const { diagram: sequence, template, outPath, sourceEvidence } = await loadDiagr
   diagramType: 'sequence',
   defaultExample: 'cache-miss-request.sequence.json'
 });
+// The public CLI passes --quality through the environment; it takes precedence
+// over meta.quality_profile, as in the shared gates and other renderers.
+const qualityProfile = process.env.ARCHIFY_QUALITY_PROFILE || sequence.meta?.quality_profile;
 
 const LEGEND_CATALOG = [
   { kind: 'emphasis', className: 'a-emphasis', marker: 'arrowhead-emphasis', strokeWidth: 1.8 },
@@ -64,7 +67,7 @@ function spreadColumnGeometry(canvasWidth, width = spreadParticipantWidth(canvas
 function timelineLabelsFit(canvasWidth) {
   const { width, margin, gap } = spreadColumnGeometry(canvasWidth);
   const centers = new Map(asArray(sequence.participants).map((participant, index) => [participant.id, margin + width / 2 + index * gap]));
-  const unitWidth = sequence.meta?.quality_profile === 'showcase' ? 6.6 : 5.2;
+  const unitWidth = qualityProfile === 'showcase' ? 6.6 : 5.2;
   return asArray(sequence.messages).every((message) => {
     if (!centers.has(message.from) || !centers.has(message.to)) return true;
     const center = (centers.get(message.from) + centers.get(message.to)) / 2;
@@ -114,7 +117,7 @@ const columnFit = sequence.meta?.column_fit || 'spread';
 const participantCount = Math.max(1, asArray(sequence.participants).length);
 // Resolve the actual final-canvas text floor before choosing header geometry.
 // Notes and automatic height must use the resulting column gaps below.
-const readableMessages = sequence.meta?.quality_profile === 'showcase';
+const readableMessages = qualityProfile === 'showcase';
 const readableAutomaticSublabel = readableMessages && automaticWidth !== null && columnFit === 'spread';
 const readableSublabelMinimum = readableAutomaticSublabel
   ? Math.max(participantTextFit.sublabelMinimum, Math.ceil(minimumReadableSourceTextPx(canvasWidth) * 10) / 10)
@@ -844,7 +847,7 @@ function validateSequence() {
     // A frame edge may pass behind a masked message label, but an edge that
     // runs along the arrow itself leaves the reader unable to tell which phase
     // the message belongs to.
-    if (sequence.meta?.quality_profile === 'showcase') {
+    if (qualityProfile === 'showcase') {
       for (const edge of ['from', 'to']) {
         const border = segment[edge];
         const cut = asArray(sequence.messages).filter((message) => typeof message.y === 'number'
@@ -917,7 +920,7 @@ function validateSequence() {
   // Showcase must not silently drop the implicit legend because late content
   // leaves no room for it; give the exact canvas height instead.
   const legendHeight = legendRequiredHeight(viewBox[0]);
-  if (sequence.meta?.quality_profile === 'showcase' && sequence.meta?.legend === undefined
+  if (qualityProfile === 'showcase' && sequence.meta?.legend === undefined
     && legendHeight > viewBox[1] && !measureLegend(legendEntries(), legendLayout())) {
     problems.push(`Sequence content ends at y=${contentBottom}, leaving no room for the legend below it — set meta.viewBox[1] to at least ${legendHeight} or omit meta.viewBox so the canvas grows.`);
   }
