@@ -87,3 +87,8 @@ test('answer accepts at most four reasons and qualifier checks exclude scope and
  for(const field of ['summary','reasons','body']){const changed=structuredClone(d);if(field==='summary')changed.answer.summary='示例判断';if(field==='reasons')changed.answer.reasons=['本例适用'];if(field==='body')blocks(changed)[0].text='Illustrative, not measured.';const issues=validateExplainer(changed).diagnostics.filter(d=>d.code==='explainer/writing-qualification');assert.ok(issues.length,field);assert.ok(JSON.stringify(issues).includes('把限定条件写进 scope 或来源'));}
  d.answer.reasons=Array(5).fill('Reason');check(d,'schema-maxItems');
 });
+
+test('source titles are plain text, so a literal generic type needs no escape',()=>{
+ const d=base();d.sources[0].title='Vec<T> in std::vec - Rust';
+ assert.deepEqual(validateExplainer(d).diagnostics,[]);
+});

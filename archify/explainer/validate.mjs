@@ -115,7 +115,9 @@ export function validateExplainer(document, {sourceMap = {}, inputPath, writingM
   text(document.meta.title,'/meta/title','title');text(document.answer.summary,'/answer/summary','answer');(document.answer.reasons||[]).forEach((reason,i)=>text(reason,`/answer/reasons/${i}`,'answer'));
   text(document.answer.scope,'/answer/scope','scope');
   for(const [si,source]of document.sources.entries()) {
-    const pointer=`/sources/${si}`;text(source.title,`${pointer}/title`,'source');
+    // Source titles render as plain escaped text in the footer and hover card,
+    // so they are not parsed as inline markup: `Vec<T>` is a literal title.
+    const pointer=`/sources/${si}`;
     if(source.lines&&source.lines[1]<source.lines[0])fail('source-lines',`${pointer}/lines`,'source','The repository line range must be ordered.','lines=10:20');
     if(source.url) {let url;try{url=new URL(source.url);}catch{}if(!url||!['http:','https:'].includes(url.protocol)||url.username||url.password||/[\u0000-\u0020\u007f]/u.test(source.url))fail('source-url',`${pointer}/url`,'source','Source URLs must be credential-free HTTP(S) links.','url=https://example.com/docs');}
   }
