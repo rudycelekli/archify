@@ -15,8 +15,10 @@ const NATIVE = { flowchart: 'workflow or architecture', sequence: 'sequence', cl
 function pieLegend(text) {
   if (!/^\s*pie\b/u.test(text)) return text;
   const slice = /^(\s*)"((?:[^"\\]|\\.)*)"\s*:\s*(-?\d+(?:\.\d+)?)\s*$/gmu;
-  const total = [...text.matchAll(slice)].reduce((sum, match) => sum + Number(match[3]), 0);
-  if (!(total > 0)) return text;
+  const values = [...text.matchAll(slice)].map((match) => Number(match[3]));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  // A negative slice is rejected by the chart; leave its authored label in that diagnostic.
+  if (!(total > 0) || values.some((value) => value < 0)) return text;
   return text.replace(/^(\s*pie)(\s+)showData\b/u, (_, pie, gap) => pie + gap.replace(/[^\r\n]/g, '')).replace(slice, (matched, indent, label, value) => {
     const share = Math.round(Number(value) / total * 100);
     // Keep accepted multiline whitespace without dropping diagnostic lines.

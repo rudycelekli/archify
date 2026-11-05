@@ -95,6 +95,13 @@ test('a blank data cell is missing data, never drawn as zero', async () => {
 });
 
 
+test('a negative pie slice is reported under its authored label', async () => {
+  const { compileExplainerChart } = await import('../archify/explainer/charts.mjs');
+  const result = compileExplainerChart('pie\n  "Infra" : -30\n  "Staff" : 50');
+  assert.match(result.error, /^"Infra" has invalid value: -30\./);
+  assert.doesNotMatch(result.error, /%/);
+});
+
 test('pie diagnostics retain authored blank and showData lines', async () => {
   const { compileExplainerChart } = await import('../archify/explainer/charts.mjs');
   for (const newline of ['\n', '\r\n']) {
