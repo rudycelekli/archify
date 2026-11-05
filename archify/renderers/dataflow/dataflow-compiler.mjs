@@ -402,6 +402,9 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
       }
 
       const flowList = asArray(dataflow.flows);
+      // A self-flow is reported once below; route gates skip it (keeping flow indices) so they do
+      // not ask to keep automatic routing for a line that cannot be drawn between two nodes.
+      const routableFlows = flowList.map((flow) => (flow?.from === flow?.to ? null : flow));
       const stageById = new Map(asArray(dataflow.nodes).map((node) => [node.id, node.stage]));
       for (const flow of flowList) {
         const flowIndex = flowList.indexOf(flow);
@@ -438,6 +441,17 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
           problems.push(problem);
         }
         if (!flow.label) problems.push(`Flow "${flow.from}" -> "${flow.to}" must include a short data label.`);
+        if (flow.from === flow.to && nodes.has(flow.from)) {
+          const problem = `Flow "${flow.label || flow.from}" starts and ends at node "${flow.from}" — draw it between two nodes, or describe the step on the node (sublabel) or in a card.`;
+          diagnostics.push({
+            code: 'dataflow/self-flow', severity: 'error', message: problem,
+            subject: { diagramType: 'dataflow', flow: flow.id ?? null, path: `/flows/${flowIndex}`, from: flow.from, to: flow.to },
+            evidence: { nodeId: flow.from },
+            supportedFixes: [`point /flows/${flowIndex}/to at a different node`, `remove /flows/${flowIndex} and describe the step on node "${flow.from}"`],
+          });
+          problems.push(problem);
+          continue;
+        }
         if (nodes.has(flow.from) && nodes.has(flow.to)) {
           const routed = pathFor(flow);
           const [start, end] = [routed.points[0], routed.points[routed.points.length - 1]];
@@ -458,7 +472,7 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
       }
 
       problems.push(...cleanEndpointSideProblems({
-        relations: dataflow.flows,
+        relations: routableFlows,
         endpointIds: new Set(nodes.keys()),
         pathFor,
         diagramType: 'dataflow',
@@ -468,7 +482,7 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
         routeHint: 'keep automatic routing, or choose fromSide/toSide and via points whose first and final segments cross node borders perpendicularly',
       }));
       problems.push(...cleanFlowProblems({
-        relations: dataflow.flows,
+        relations: routableFlows,
         obstacles: nodes.values(),
         pathFor,
         diagramType: 'dataflow',
@@ -477,7 +491,7 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
         routeHint: 'adjust fromSide/toSide, set route/via or channelX/channelY, or move the node to another stage/row'
       }));
       problems.push(...cleanCrossingProblems({
-        relations: dataflow.flows,
+        relations: routableFlows,
         endpointIds: new Set(nodes.keys()),
         pathFor,
         diagramType: 'dataflow',
@@ -487,7 +501,7 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
         routeHint: 'adjust route/via or channelX/channelY so the flows use separate stage corridors'
       }));
       problems.push(...cleanAmbiguousCorridorProblems({
-        relations: dataflow.flows,
+        relations: routableFlows,
         endpointIds: new Set(nodes.keys()),
         pathFor,
         diagramType: 'dataflow',
@@ -496,7 +510,7 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
         routeHint: 'adjust route/via or channelX/channelY so unrelated flows do not visually merge'
       }));
       problems.push(...cleanBorderRunProblems({
-        relations: dataflow.flows,
+        relations: routableFlows,
         endpointIds: new Set(nodes.keys()),
         frames: compositionFrames,
         pathFor,
@@ -506,7 +520,7 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
         routeHint: 'adjust route/via or channelX/channelY so the flow crosses the stage perpendicularly instead of following its border'
       }));
       problems.push(...cleanRouteRhythmProblems({
-        relations: dataflow.flows,
+        relations: routableFlows,
         endpointIds: new Set(nodes.keys()),
         pathFor,
         diagramType: 'dataflow',
@@ -531,7 +545,7 @@ export function compileDataflow({ dataflow, sourceEvidence, qualityProfile: requ
         }
       }
       problems.push(...cleanLabelRouteClearanceProblems({
-        relations: dataflow.flows,
+        relations: routableFlows,
         labels: labelRects,
         endpointIds: new Set(nodes.keys()),
         pathFor,

@@ -828,3 +828,20 @@ test('an invalid authored label preserves its diagnosis and the existing artifac
   assert.equal(rendered.status, 1);
   assert.equal(fs.readFileSync(output, 'utf8'), 'previous complete diagram');
 });
+
+test('a flow from a node to itself gets one self-flow diagnostic instead of route repairs', t => {
+  const diagram = {
+    schema_version: 1, diagram_type: 'dataflow',
+    meta: { title: 'Self flow', output: 'diagram.html' },
+    stages: [{ label: 'Source' }, { label: 'Store' }],
+    nodes: [
+      { id: 'app', type: 'backend', label: 'App', stage: 0, row: 0 },
+      { id: 'db', type: 'database', label: 'DB', stage: 1, row: 0 },
+    ],
+    flows: [{ from: 'app', to: 'db', label: 'events' }, { from: 'db', to: 'db', label: 'compaction' }],
+  };
+  const { result, receipt } = inspect(t, diagram);
+  assert.equal(result.status, 1);
+  assert.deepEqual(receipt.diagnostics.map(({ code }) => code), ['dataflow/self-flow']);
+  assert.equal(receipt.diagnostics[0].subject.path, '/flows/1');
+});
