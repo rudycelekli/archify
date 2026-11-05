@@ -341,6 +341,44 @@ function layoutBoundaryTitles(rawBoundaries, minimumFontSize) {
   });
 }
 
+function placementConstraintProblems(problems) {
+  if (grid) {
+    validateGridPlacement(arch, grid, problems);
+    return;
+  }
+  for (const c of asArray(arch.components)) {
+    if (!Array.isArray(c.pos) || c.pos.length !== 2) {
+      problems.push(`Component "${c.id}" must include pos [x, y] when layout.mode is omitted (free placement).`);
+    }
+  }
+}
+
+function nonFiniteComponentProblem(c, problems, diagnostics) {
+  const message = `Component "${c.id}" has non-finite pos/size — pos and size must be [number, number].`;
+  diagnostics.push({
+    code: 'architecture/non-finite-component-geometry', severity: 'error', message,
+    subject: { diagramType: 'architecture', nodeId: c.id },
+    evidence: { pos: c.pos ?? null, size: [c.width, c.height] },
+    supportedFixes: [`replace component "${c.id}" pos and size with finite [number, number] values`],
+  });
+  problems.push(message);
+}
+
+// Routes, labels and the derived canvas all need finite component geometry.
+// Report unplaced components before any route is planned, rather than letting
+// route planning fail as an internal error (#76).
+const unplacedComponents = [...components.values()].filter((c) => !isFinitePoint(c.x, c.y, c.width, c.height));
+if (unplacedComponents.length) {
+  const problems = [];
+  const diagnostics = [];
+  placementConstraintProblems(problems);
+  for (const c of unplacedComponents) nonFiniteComponentProblem(c, problems, diagnostics);
+  throwDiagnosticProblems('Architecture layout validation failed', problems, {
+    subject: { diagramType: 'architecture' },
+    diagnostics,
+  });
+}
+
 // ---- Routing state ----------------------------------------------------------
 // Initialized before the boundary-title work below: connection label rects are
 // part of the derived canvas, so the title convergence must measure the same
@@ -475,26 +513,11 @@ function validateArchitecture() {
   }
   const requiresNestedBoundaryMembership = arch.meta?.engineering_profile === 'deployment-ownership';
   if (components.size !== asArray(arch.components).length) problems.push('Component ids must be unique.');
-  if (grid) {
-    validateGridPlacement(arch, grid, problems);
-  } else {
-    for (const c of asArray(arch.components)) {
-      if (!Array.isArray(c.pos) || c.pos.length !== 2) {
-        problems.push(`Component "${c.id}" must include pos [x, y] when layout.mode is omitted (free placement).`);
-      }
-    }
-  }
+  placementConstraintProblems(problems);
 
   for (const c of components.values()) {
     if (!isFinitePoint(c.x, c.y, c.width, c.height)) {
-      const message = `Component "${c.id}" has non-finite pos/size — pos and size must be [number, number].`;
-      diagnostics.push({
-        code: 'architecture/non-finite-component-geometry', severity: 'error', message,
-        subject: { diagramType: 'architecture', nodeId: c.id },
-        evidence: { pos: c.pos ?? null, size: [c.width, c.height] },
-        supportedFixes: [`replace component "${c.id}" pos and size with finite [number, number] values`],
-      });
-      problems.push(message);
+      nonFiniteComponentProblem(c, problems, diagnostics);
       continue;
     }
     if (c.width <= 0 || c.height <= 0) {

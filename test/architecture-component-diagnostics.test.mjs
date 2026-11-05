@@ -259,6 +259,20 @@ test('grid components without placement report typed geometry instead of the unt
   assert.ok(geometry.supportedFixes.length > 0);
 });
 
+test('connected components without placement report placement diagnostics instead of an internal error', t => {
+  for (const label of [undefined, 'HTTPS']) {
+    const { cwd, input, diagram } = setup(t, [
+      { id: 'web', type: 'frontend', label: 'Web' },
+      { id: 'api', type: 'backend', label: 'API', pos: [260, 80] },
+    ]);
+    diagram.connections = [{ id: 'web-api', from: 'web', to: 'api', ...(label ? { label } : {}) }];
+    rewrite(input, diagram);
+    const codes = validate(input, cwd).diagnostics.map(d => d.code);
+    assert.ok(!codes.includes('internal/unclassified'), JSON.stringify(codes));
+    assert.deepEqual(codes, ['layout/constraint', 'architecture/non-finite-component-geometry']);
+  }
+});
+
 test('a component taller than the canvas gets a repair that also shrinks its height', t => {
   const { cwd, input, diagram } = setup(t, [
     { id: 'tall', type: 'backend', label: 'T', pos: [40, -20], size: [120, 800] },
