@@ -906,6 +906,10 @@ function validateSequence() {
   for (const activation of asArray(sequence.activations)) {
     if (!participants.has(activation.participant)) problems.push(`Activation references unknown participant "${activation.participant}".`);
     if (activation.to <= activation.from) problems.push(`Activation for "${activation.participant}" has invalid time range — "to" must be greater than "from".`);
+    // A bar is drawn on its lifeline; outside it, the bar covers the participant header or runs past the canvas.
+    if (activation.from < layout.lifelineTop || activation.to > layout.lifelineBottom) {
+      problems.push(`Activation for "${activation.participant}" extends outside its lifeline — keep its y range between ${layout.lifelineTop} and ${layout.lifelineBottom}.`);
+    }
   }
 
   const lastParticipant = asArray(sequence.participants)[asArray(sequence.participants).length - 1];

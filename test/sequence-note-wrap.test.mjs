@@ -451,3 +451,24 @@ test('notes that fit their phase, or messages outside it, do not request a phase
     assert.ok(!(JSON.parse(result.stdout).composition?.sequenceNoteBorders || []).some(d => d.code === 'sequence/note-segment-border'));
   }
 });
+
+test('an activation bar must stay on its lifeline', (t) => {
+  const spec = (activation) => {
+    const diagram = sequence({
+      quality: 'standard',
+      messages: [
+        { id: 'request', from: 'client', to: 'api', y: 200, label: 'request' },
+        { id: 'reply', from: 'api', to: 'client', y: 260, label: 'reply', variant: 'return' },
+      ],
+      activations: [{ participant: 'api', ...activation }],
+    });
+    diagram.meta.viewBox = [920, 560];
+    return diagram;
+  };
+  for (const activation of [{ from: 40, to: 300 }, { from: 190, to: 900 }]) {
+    const { result } = run(t, 'validate', spec(activation));
+    assert.notEqual(result.status, 0, JSON.stringify(activation));
+    assert.match(result.stdout, /Activation for \\"api\\" extends outside its lifeline/, JSON.stringify(activation));
+  }
+  assert.equal(run(t, 'validate', spec({ from: 190, to: 270 })).result.status, 0);
+});
