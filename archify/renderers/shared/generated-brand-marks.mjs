@@ -533,7 +533,7 @@ export const BRAND_MARKS = Object.freeze([
     "category": "framework",
     "aliases": [],
     "domains": [
-      "palletsprojects.com"
+      "flask.palletsprojects.com"
     ],
     "viewBox": 24,
     "hex": "3BABC3",
@@ -851,7 +851,7 @@ export const BRAND_MARKS = Object.freeze([
     "category": "collaboration",
     "aliases": [],
     "domains": [
-      "atlassian.com"
+      "jira.atlassian.com"
     ],
     "viewBox": 24,
     "hex": "0052CC",

@@ -8,7 +8,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { BRAND_MARKS } from '../archify/renderers/shared/generated-brand-marks.mjs';
-import { isPrivateBrandAddress, prepareDiagramBrandMarks } from '../archify/renderers/shared/brand-marks.mjs';
+import { findBrandMark, isPrivateBrandAddress, prepareDiagramBrandMarks } from '../archify/renderers/shared/brand-marks.mjs';
 import {
   THIRD_PARTY_NOTICE_DISCLOSURE_COUNT,
   validateThirdPartyNotices,
@@ -137,6 +137,17 @@ test('generated catalog exposes a substantial, unique, provenance-backed preset 
     assert.match(mark.hex, /^[0-9A-F]{6}$/i);
     assert.match(mark.path, /^[Mm]/);
     assert.ok(mark.provenance?.source);
+  }
+});
+
+test('a product preset does not claim sibling products on its parent company domain', () => {
+  for (const [url, expected] of [
+    ['https://www.atlassian.com/software/confluence', null],
+    ['https://jinja.palletsprojects.com/', null],
+    ['https://jira.atlassian.com/', 'jira'],
+    ['https://flask.palletsprojects.com/en/stable/', 'flask'],
+  ]) {
+    assert.equal(findBrandMark(url)?.id ?? null, expected, url);
   }
 });
 
