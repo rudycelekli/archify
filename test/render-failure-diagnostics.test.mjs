@@ -416,4 +416,8 @@ test('renderer and standalone CLI format the same diagnostics consistently', () 
   ]]) {
     assert.equal(formatters[0]('Render failed', diagnostics), formatters[1]('Render failed', diagnostics));
   }
+  const sentences = [{ code: 'tree/cycle', message: 'Parent links form a cycle.', supportedFixes: ['Point one node at an outside parent.', 'Drop the tag.'] }];
+  for (const format of formatters) {
+    assert.equal(format('Render failed', sentences).split('\n')[1], '[tree/cycle] Parent links form a cycle. Fix: Point one node at an outside parent; Drop the tag.');
+  }
 });

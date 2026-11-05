@@ -2791,7 +2791,9 @@ function formatDiagnostics(error, diagnostics = []) {
   return [
     error,
     ...diagnostics.map((entry) => {
-      const fix = entry.supportedFixes?.length ? ` Fix: ${entry.supportedFixes.join('; ')}.` : '';
+      // Fixes are often full sentences; drop each one's own final period so the
+      // joined text ends with exactly one.
+      const fix = entry.supportedFixes?.length ? ` Fix: ${entry.supportedFixes.map((text) => String(text).replace(/\.\s*$/, '')).join('; ')}.` : '';
       return `[${entry.code}] ${entry.message}${fix}`;
     }),
   ].join('\n');
