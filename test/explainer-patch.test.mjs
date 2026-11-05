@@ -111,6 +111,19 @@ test('restricted author draft panel patch preserves other authored text and stab
   assert.equal(read(output).sourceText,draft.replace('Old paragraph.','New paragraph.'));assert.equal(read(output).document.panels[1].id,'second');
 });
 
+test('patching the last author-draft panel keeps a source declared after it',t=>{
+  const dir=temp(t),input=path.join(dir,'author.md'),artifact=path.join(dir,'original.html'),replacement=path.join(dir,'replacement.md');
+  const source='@source redis title="Redis latency docs" url=https://redis.io/docs/latency\n';
+  const draft=`# Why is the read slow? {#patch-document}\n\nA miss falls through.[](source:redis)\n\n## What about a hit? {#hit}\n\nA hit returns from memory.[](source:redis)\n\n## What about a miss? {#miss}\n\nOld paragraph.\n\n${source}`;
+  fs.writeFileSync(input,draft);
+  const delivery=run(['deliver','explainer',input,artifact,'--json']);assert.equal(delivery.status,0,delivery.stdout+delivery.stderr);
+  for(const [name,text] of [['panel only','## What about a miss? {#miss}\n\nNew paragraph.\n'],['panel with its trailing source',`## What about a miss? {#miss}\n\nNew paragraph.\n\n${source}`]]) {
+    const output=path.join(dir,`${name.replaceAll(' ','-')}.html`);fs.writeFileSync(replacement,text);
+    const patched=run(['patch','explainer',artifact,'miss',replacement,output,'--json']);assert.equal(patched.status,0,`${name}: ${patched.stdout}${patched.stderr}`);
+    assert.equal(read(output).sourceText,draft.replace('Old paragraph.','New paragraph.'),name);
+  }
+});
+
 test('panel patch applies explicit strict writing checks before publishing',t=>{
   const dir=temp(t),{artifact}=deliver(dir),replacement=path.join(dir,'replacement.json'),output=path.join(dir,'patched.html');fs.writeFileSync(output,'last good output');
   const next=fixture().panels[0];next.blocks[0].text='We will perform an analysis of each and every request.';fs.writeFileSync(replacement,JSON.stringify(next));

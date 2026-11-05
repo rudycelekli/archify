@@ -41,7 +41,17 @@ export async function preparePanelPatch({artifactPath,panelId,replacementPath,re
   const replacementBytes = fs.readFileSync(replacementPath);
   const replacement = replacementBytes.toString('utf8');
   if(!Buffer.from(replacement).equals(replacementBytes)) fail('source-encoding','Panel replacement must contain valid UTF-8 bytes.',replacementPath,panelId,'Save the replacement panel as UTF-8 text.');
-  const sourceText = draft.sourceText.slice(0,range.start)+replacement+draft.sourceText.slice(range.end);
+  // A Markdown panel runs to the next heading, so document-level directives written after its
+  // blocks (@source, @meta, @answer) fall inside its range. They are not panel content: keep the
+  // ones the replacement does not repeat, so copying the panel with its trailing lines still works.
+  const replacementLines=new Set(replacement.split(/\r?\n/u).map(line=>line.trim()));
+  const documentLevel=new Map(Object.entries(oldParsed.sourceMap)
+    .filter(([pointer,location])=>/^\/(?:sources\/\d+|meta\/[^/]+|answer\/scope)$/u.test(pointer)&&location.start>=range.start&&location.end<=range.end)
+    .map(([,location])=>[location.start,draft.sourceText.slice(location.start,location.end)])
+    .filter(([,text])=>!replacementLines.has(text.trim())));
+  const kept=[...documentLevel].sort(([a],[b])=>a-b).map(([,text])=>text.endsWith('\n')?text:`${text}\n`).join('');
+  const body=kept?`${replacement.replace(/\s+$/u,'')}\n\n${kept}${range.end<draft.sourceText.length?'\n':''}`:replacement;
+  const sourceText = draft.sourceText.slice(0,range.start)+body+draft.sourceText.slice(range.end);
   const parsed=parseValidatedExplainer(sourceText,{inputPath:draft.sourcePath || artifactPath,writingMode:writingMode || previous.writingMode || 'warn'});
   if(parsed.document.panels.length!==oldParsed.document.panels.length || parsed.document.panels[index]?.id!==panelId) {
     fail('identity','A panel replacement must retain the target stable id and panel count.',replacementPath,panelId,oldParsed.format==='json'?'{"id":"'+panelId+'","title":"Question?","blocks":[...]}':'## Question? {#'+panelId+'}\n\nReplacement content.');
