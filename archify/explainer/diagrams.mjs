@@ -255,8 +255,9 @@ export function compileExplainerDiagram(diagramType, rows, { title, id, line = 1
     };
     const workflowModel = placed => {
       const model = {};
+      // A phase cell needs its lane row even when no lane is declared; otherwise the phase is silently dropped.
+      for (const [id, { lane, context: ctx }] of nodeLanes) if (!lanes.has(lane)) fail(ctx, 'diagram-lane', `Node ${id} names an undeclared lane.`, 'lane locate | Locate the cause');
       if (lanes.size) {
-        for (const [id, { lane, context: ctx }] of nodeLanes) if (!lanes.has(lane)) fail(ctx, 'diagram-lane', `Node ${id} names an undeclared lane.`, 'lane locate | Locate the cause');
         const first = lanes.keys().next().value;
         const order = [...lanes.keys()];
         const ranked = [...placed].sort((a, b) => a.col - b.col || a.row - b.row).map(({ row, col, ...node }) => ({ ...node, lane: nodeLanes.get(node.id)?.lane || first }));

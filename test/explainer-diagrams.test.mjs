@@ -215,6 +215,9 @@ test('explainer diagrams: short phased workflows form one row with phase labels;
   assert.deepEqual(wider.nodes.filter(node => node.lane === 'locate').map(node => node.col), [0, 1, 2, 3, 4, 5], 'rows restart when a staircase would exceed six columns');
   assert.throws(() => compileExplainerDiagram('workflow', ['lane confirm | Confirm', 'alert | Alert | external | missing'], { id: 'phases' }),
     error => (error.archifyDiagnostics || error.diagnostics || []).some(item => /undeclared lane/.test(item.message)));
+  assert.throws(() => compileExplainerDiagram('workflow', ['alert | Alert | external | confirm', 'fix | Fix | backend | locate', 'alert > fix'], { id: 'no-lanes' }),
+    error => (error.archifyDiagnostics || error.diagnostics || []).some(item => /undeclared lane/.test(item.message)),
+    'a phase cell without any lane rows is reported, not silently dropped');
 });
 
 test('explainer diagrams: sequence phase rows become native segments over the following messages', () => {
