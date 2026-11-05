@@ -148,6 +148,24 @@ test('class: long members wrap inside the box instead of being truncated', () =>
   }
 });
 
+test('class: a wrapped method keeps a function return type after its parameter list', () => {
+  const diagram = {
+    schema_version: 1,
+    diagram_type: 'class',
+    meta: { title: 'Event bus' },
+    types: [{ id: 'bus', label: 'EventBus', kind: 'class', row: 0, col: 0, methods: [
+      { name: 'subscribe', parameters: 'topic: string, listener: EventListener', returns: '() => void' },
+    ] }],
+  };
+  const { svg, status, stderr } = render(diagram);
+  assert.equal(status, 0, stderr);
+  const lines = [...svg.matchAll(/<text data-detail="context" data-class-member="methods"[^>]*>(.*?)<\/text>/g)]
+    .map((line) => line[1].replace(/<[^>]+>/g, '').replace(/&gt;/g, '>').trim());
+  assert.ok(lines.length > 1, 'expected the method to wrap');
+  assert.equal(lines.at(-1), '): () => void');
+  assert.ok(lines.slice(0, -1).every((line) => !line.includes(')')), JSON.stringify(lines));
+});
+
 function failure(mutate) {
   const diagram = clone(small);
   mutate(diagram);

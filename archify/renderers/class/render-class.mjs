@@ -175,7 +175,13 @@ function wrapMember(text, availablePx) {
   if (textUnits(text) <= limit) return [{ text, indent: 0 }];
   const lines = fillLines(text.split(/(?<=\(|, )|(?=\): )/), limit, 0, CONTINUATION_INDENT);
   const open = text.indexOf('(');
-  const close = text.lastIndexOf(')');
+  // The parameter list ends at the parenthesis that closes `open`, not the last
+  // one: a function return type such as `() => void` has its own parentheses.
+  let close = -1;
+  for (let index = open + 1, depth = 1; open !== -1 && index < text.length; index += 1) {
+    if (text[index] === '(') depth += 1;
+    else if (text[index] === ')' && --depth === 0) { close = index; break; }
+  }
   if (open === -1 || close < open) return lines;
   const head = text.slice(0, open + 1);
   const parameters = text.slice(open + 1, close).split(/(?<=, )/);
