@@ -86,6 +86,7 @@ test('writing: English URL paths and balanced URL parentheses stay masked', () =
 test('writing: long paragraphs, an all-bold conclusion and a disclaimer-style scope get structural hints', () => {
   const rules = entries => lintExplainerWriting(entries).map(item => item.evidence.rule);
   assert.deepEqual(rules([entry('一。二。三。四。五。')]), ['paragraph-length']);
+  assert.deepEqual(rules([entry('The web team already ships Next.js on Node.js. One runtime keeps the build simple. Deploys stay one step.')]), [], 'dotted names are not sentence ends');
   assert.deepEqual(rules([entry('一。二。三。', {component: 'list'})]), []);
   const summary = '先做模块化单体，等模块边界稳定后再拆分服务。';
   assert.deepEqual(rules([entry(summary, {component: 'answer', pointer: '/answer/summary', raw: `**${summary}**`})]), ['verdict-emphasis']);

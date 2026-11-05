@@ -46,9 +46,10 @@ function sentences(text) {
   let start = 0;
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
-    const decimal = char === '.' && /\d/u.test(text[i - 1] || '') && /\d/u.test(text[i + 1] || '');
+    // A dot between two letters or digits sits inside a token (3.5, Node.js, config.yaml), not at a sentence end.
+    const inToken = char === '.' && /[A-Za-z0-9]/u.test(text[i - 1] || '') && /[A-Za-z0-9]/u.test(text[i + 1] || '');
     const paragraph = char === '\n' && /^\s*\n/u.test(text.slice(i + 1));
-    if ((/[.!?。！？]/u.test(char) && !decimal) || paragraph) {
+    if ((/[.!?。！？]/u.test(char) && !inToken) || paragraph) {
       result.push({text: text.slice(start, i + 1), offset: start});
       start = i + 1;
     }
