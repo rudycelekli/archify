@@ -230,7 +230,18 @@ export function registerLocale(locale, translations = undefined) {
 // report the same diagnostics from the same input.
 export function localeDiagnostics(diagramType, meta) {
   const locale = meta?.locale;
-  if (!locale) return [];
+  if (!locale) {
+    // Overrides are installed per authored locale; without one they never apply.
+    const keys = meta?.translations && typeof meta.translations === 'object' ? Object.keys(meta.translations) : [];
+    return keys.length ? [{
+      code: 'i18n/translations-without-locale',
+      severity: 'warning',
+      message: `meta.translations has ${keys.length} ${keys.length === 1 ? 'entry' : 'entries'} but no meta.locale, so none is applied; the Viewer chrome stays English.`,
+      subject: { diagramType, path: '/meta/translations' },
+      evidence: { keys: keys.slice(0, 10), keysTotal: keys.length },
+      supportedFixes: ['Set meta.locale to the language of these translations.', 'Remove meta.translations.'],
+    }] : [];
+  }
   const report = resolveCatalog(locale, meta.translations).report;
   const diagnostics = [];
   const { unknownKeys, placeholderMismatches, appliedKeys } = report.override;

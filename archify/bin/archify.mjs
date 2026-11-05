@@ -1881,7 +1881,7 @@ async function specificationLocaleDiagnostics(type, specification) {
   } catch {
     return [];
   }
-  if (!meta?.locale) return [];
+  if (!meta?.locale && !meta?.translations) return [];
   const { localeDiagnostics } = await import('../renderers/shared/i18n.mjs');
   return localeDiagnostics(type, meta);
 }

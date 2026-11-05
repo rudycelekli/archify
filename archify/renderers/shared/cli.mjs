@@ -32,8 +32,7 @@ let renderCandidateSequence = 0;
 // mixing text into failure receipts; validate/deliver disclose them publicly.
 function applyLocaleTranslations(diagramType, diagram) {
   const locale = diagram.meta?.locale;
-  if (!locale) return;
-  registerLocale(locale, diagram.meta.translations);
+  if (locale) registerLocale(locale, diagram.meta.translations);
   for (const diagnostic of localeDiagnostics(diagramType, diagram.meta)) {
     recordDiagnostic(diagnostic);
     if (process.env.ARCHIFY_DIAGNOSTIC_FORMAT !== 'json') {

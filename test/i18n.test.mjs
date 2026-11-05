@@ -463,6 +463,27 @@ test('a document override never mutates the reusable bundled catalog', () => {
   assert.equal(translateMessage('es', 'viewer.common.close'), before, 'a later document without overrides reuses the bundled catalog');
 });
 
+test('translations without a locale are reported instead of silently ignored', () => {
+  const input = path.join(tmp, 'receipt-no-locale.json');
+  const document = localeDocument('architecture', { translations: { 'viewer.common.close': 'Cerrar panel' } });
+  delete document.meta.locale;
+  fs.writeFileSync(input, JSON.stringify(document));
+  const cli = path.join(skillRoot, 'bin/archify.mjs');
+  for (const command of ['validate', 'deliver']) {
+    const args = [cli, command, 'architecture', input, ...(command === 'deliver' ? [path.join(tmp, 'receipt-no-locale.html')] : []), '--json'];
+    const machine = spawnSync(process.execPath, args, { cwd: tmp, encoding: 'utf8' });
+    assert.equal(machine.status, 0, machine.stderr || machine.stdout);
+    const receipt = JSON.parse(machine.stdout);
+    assert.deepEqual(receipt.diagnostics.map((entry) => [entry.code, entry.severity, entry.subject.path]), [
+      ['i18n/translations-without-locale', 'warning', '/meta/translations'],
+    ], command);
+    assert.equal(machine.stderr, `archify: ${receipt.diagnostics[0].message}\n`, `${command}: discloses the warning once`);
+  }
+  document.meta.translations = {};
+  fs.writeFileSync(input, JSON.stringify(document));
+  assert.equal(cliJson(['validate', 'architecture', input, '--json']).diagnostics, undefined, 'an empty override is no override');
+});
+
 test('validate and deliver receipts carry locale warnings as structured diagnostics without failing', () => {
   const input = path.join(tmp, 'receipt-fr.json');
   fs.writeFileSync(input, JSON.stringify(localeDocument('architecture', {
