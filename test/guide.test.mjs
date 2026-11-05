@@ -122,3 +122,13 @@ test('guide: promoted signals do not match unrelated class, interface or span su
   assert.equal(recommendScenario('Draw a class diagram').recommendation.id, 'payment-modules');
   assert.equal(recommendScenario('Show waterfall latency breakdown').recommendation.id, 'checkout-timings');
 });
+
+test('guide: ASCII signals match at a word start, not inside unrelated words', () => {
+  for (const query of ['Show the aviation booking flow', 'Show the deviation alert workflow', 'Netlify build and deploy steps']) {
+    const result = recommendScenario(query);
+    assert.deepEqual(result.matchedSignals, [], query);
+    assert.equal(result.confidence, 'low', query);
+  }
+  assert.ok(recommendScenario('Show webhooks with callbacks').matchedSignals.includes('webhook'), 'plural endings still match');
+  assert.equal(recommendScenario('Why are the labels overlapping?').recommendation.id, 'layout-repair');
+});

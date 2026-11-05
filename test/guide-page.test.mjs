@@ -75,5 +75,8 @@ test('guide search: preserves s in recipe IDs and matches whitespace-separated s
         assert.equal(scores(spaced), scores(signal), `${file}: ${signal}`);
       }
     }
+    for (const query of ['Show the aviation booking flow', 'Netlify build and deploy steps']) {
+      assert.equal(context.rank(query)[0].score, 0, `${file}: ${query}`);
+    }
   }
 });

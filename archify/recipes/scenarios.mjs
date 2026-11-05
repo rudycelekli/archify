@@ -467,6 +467,17 @@ export function listScenarioRecipes(lang = 'en') {
   return SCENARIO_RECIPES.map((recipe) => localized(recipe, lang));
 }
 
+// An ASCII signal must start a word, so "via" does not match "aviation" and
+// "etl" does not match "Netlify"; endings stay open for plurals and verb forms.
+// CJK signals have no word separators and keep substring matching.
+function signalMatches(text, signal) {
+  if (/[^\x00-\x7f]/.test(signal)) return text.includes(signal);
+  for (let at = text.indexOf(signal); at !== -1; at = text.indexOf(signal, at + 1)) {
+    if (at === 0 || !/[a-z0-9]/.test(text[at - 1])) return true;
+  }
+  return false;
+}
+
 function scoreRecipe(recipe, query) {
   const text = normalized(query);
   if (!text) return { recipe, score: 0, matched: [] };
@@ -476,7 +487,7 @@ function scoreRecipe(recipe, query) {
   let score = 0;
   const matched = [];
   for (const [signal, weight] of recipe.signals) {
-    if (text.includes(normalized(signal))) {
+    if (signalMatches(text, normalized(signal))) {
       score += weight;
       matched.push(signal);
     }

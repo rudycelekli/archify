@@ -43,12 +43,20 @@
       function t(key) { return copy[language][key]; }
       function local(recipe) { return Object.assign({}, recipe, recipe[language]); }
       function normalize(value) { return String(value || '').normalize('NFKC').toLowerCase().replace(/[\s_]+/g,' ').trim(); }
+      // An ASCII signal must start a word ("via" is not in "aviation"); CJK signals keep substring matching.
+      function signalMatches(text, signal) {
+        if (/[^\x00-\x7f]/.test(signal)) return text.includes(signal);
+        for (var at = text.indexOf(signal); at !== -1; at = text.indexOf(signal, at + 1)) {
+          if (at === 0 || !/[a-z0-9]/.test(text[at - 1])) return true;
+        }
+        return false;
+      }
       function rank(query) {
         var text = normalize(query);
         return recipes.map(function (recipe,index) {
           var score = 0, matched = [];
           if (text === recipe.id || text === recipe.id.replace(/-/g,' ')) { score = 100; matched = [recipe.id]; }
-          else recipe.signals.forEach(function (signal) { if (text.includes(normalize(signal[0]))) { score += signal[1]; matched.push(signal[0]); } });
+          else recipe.signals.forEach(function (signal) { if (signalMatches(text, normalize(signal[0]))) { score += signal[1]; matched.push(signal[0]); } });
           return { recipe:recipe, score:score, matched:matched, index:index };
         }).sort(function (a,b) { return b.score - a.score || a.index - b.index; });
       }
