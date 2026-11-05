@@ -606,6 +606,7 @@ function placeRow(row, rowGap) {
 }
 
 // Arcs nest by span: a shorter arc stays lower; overlapping spans never share a level.
+// A self-loop on an arc's own end state sits inside that arc, so it blocks it too.
 function assignArcLevels() {
   const arcs = ofKind('arc').map((transition, index) => {
     const a = spineIndex.get(transition.from);
@@ -615,7 +616,7 @@ function assignArcLevels() {
   const sorted = [...arcs].sort((left, right) => (left.hi - left.lo) - (right.hi - right.lo) || left.lo - right.lo || left.index - right.index);
   for (const arc of sorted) {
     const blocking = sorted.filter((other) => other !== arc && other.level
-      && ((other.lo < arc.hi && arc.lo < other.hi) || (other.lo === other.hi && arc.lo < other.lo && other.lo < arc.hi)
+      && ((other.lo < arc.hi && arc.lo < other.hi) || (other.lo === other.hi && arc.lo <= other.lo && other.lo <= arc.hi)
         || (other.lo === arc.lo && other.hi === arc.hi)));
     arc.level = 1 + Math.max(0, ...blocking.map((other) => other.level));
   }

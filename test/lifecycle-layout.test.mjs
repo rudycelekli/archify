@@ -116,6 +116,27 @@ test('main path is one row, loops arc above it and other states sit one row per 
   assert.equal((result.svg.match(/style="fill: none" stroke-width="1"/g) || []).length, 2, 'done and archived are final');
 });
 
+test('a self-loop on an arc end state nests inside that arc', () => {
+  for (const [from, to, label] of [['done', 'running', 'reopen'], ['running', 'done', 'skip']]) {
+    const result = render(base({
+      mainPath: ['queued', 'running', 'done'],
+      states: [state('queued', 'start'), state('running', 'active'), state('done', 'success')],
+      transitions: [
+        { from: 'queued', to: 'running' },
+        { from: 'running', to: 'done' },
+        { from: 'running', to: 'running', label: 'retry' },
+        { from, to, label },
+      ],
+    }));
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(result.check.ok, true, JSON.stringify(result.check.composition.issues));
+    const loopTop = Math.min(...points(result.svg, 'running', 'running').map(([, y]) => y));
+    // running -> done also has its main-path edge; the labelled arc is the higher route.
+    const arcTop = Math.min(...allPoints(result.svg, from, to).flat().map(([, y]) => y));
+    assert.ok(arcTop < loopTop, `${from} -> ${to} arcs above the retry loop (${arcTop} < ${loopTop})`);
+  }
+});
+
 test('an exit shared by consecutive phases leaves one composite frame', () => {
   const result = render(base({
     mainPath: ['queued', 'starting', 'running', 'success'],
