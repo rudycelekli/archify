@@ -102,3 +102,11 @@ test('a renamed file retains the old credential syntax for removed lines',()=>{
   const literal='diff --git a/config.yaml b/notes.txt\n--- a/config.yaml\n+++ b/notes.txt\n@@ -1 +1 @@\n-api_key: example-private-credential\n+Public notes';
   const result=parseExplainerDiff(literal);assert.equal(result.rows.find(row=>row.kind==='removed').filePath,'config.yaml');assert.equal(result.rows.find(row=>row.kind==='added').filePath,'notes.txt');assert.ok(result.diagnostics.some(issue=>issue.code==='explainer/diff-secret'));assert.ok(!JSON.stringify(result.diagnostics).includes('example-private-credential'));
 });
+
+test('an empty line inside a hunk is an empty context line, as git apply reads it',()=>{
+  const literal='@@ -1,4 +1,4 @@\n function load() {\n\n-  return cache.get(key);\n+  return cache.get(key) ?? db.get(key);\n }\n';
+  const result=parseExplainerDiff(literal);
+  assert.deepEqual(result.diagnostics,[]);assert.equal(reconstruction(result),literal);
+  const blank=result.rows[2];assert.deepEqual([blank.kind,blank.text,blank.oldLine,blank.newLine],['context','',2,2]);
+  assert.deepEqual([result.counts.added,result.counts.removed],[1,1]);
+});

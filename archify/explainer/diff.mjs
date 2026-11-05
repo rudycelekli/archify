@@ -97,7 +97,9 @@ export function parseExplainerDiff(text, {line=1,component='diff',input,panelId,
       if(!lastBody||markerFor===lastBody)fail('newline-marker',sourceLine,'A no-newline marker must immediately follow one content row and cannot repeat for that row.','@@ -1 +1 @@\n-old\n\\ No newline at end of file\n+new\n\\ No newline at end of file');
       row('no-newline',value,index,{...(lastBody?{forLine:lastBody.sourceLine}:{})});markerFor=lastBody;continue;
     }
-    const kind=raw.startsWith('+')?'added':raw.startsWith('-')?'removed':raw.startsWith(' ')?'context':null;
+    // Inside an unfinished hunk, an empty line is an empty context line whose
+    // leading space was stripped by an editor; git apply accepts it the same way.
+    const kind=raw.startsWith('+')?'added':raw.startsWith('-')?'removed':raw.startsWith(' ')||(within&&raw==='')?'context':null;
     if(!kind) {fail('row',sourceLine,'Diff content rows must start with a space, + or -.');row('header',value,index);lastBody=null;markerFor=null;continue;}
     const entry=row(kind,value,index,{text:raw.slice(1)});counts[kind]++;
     if(hunk) {
